@@ -1,23 +1,29 @@
 (ns swank.core.protocol
   (:use (swank util)
         (swank.util io))
-  (:require swank.rpc))
+  (:require swank.rpc clojure.string)
+  (:import (java.io InputStream OutputStream)))
 
-;; Read forms
-(def #^{:private true}
-     namespace-re #"(^\(:emacs-rex \([a-zA-Z][a-zA-Z0-9]+):")
+(defn- fix-namespace-on-symbol [the-sym]
+  (let [symname (name the-sym)
+        parts (clojure.string/split symname #"::?" 2)]
+    (apply symbol parts)))
 
 (defn- fix-namespace
   "Changes the namespace of a function call from pkg:fn to ns/fn. If
    no pkg exists, then nothing is done."
-  ([text] (.replaceAll (re-matcher namespace-re text) "$1/")))
+  ([form] (if (= (first form) :emacs-rex)
+              `(:emacs-rex (~(fix-namespace-on-symbol (first (second form)))
+                             ~@(rest (first (rest form))))
+                           ~@(rest (rest form)))
+              form)))
 
 (defn write-swank-message
   "Given a `writer' (java.io.Writer) and a `message' (typically an
    sexp), encode the message according to the swank protocol and
    write the message into the writer."
-  ([#^java.io.Writer writer message]
-     (swank.rpc/encode-message writer message))
+  ([#^java.io.OutputStream output-stream message]
+     (swank.rpc/encode-message output-stream message))
   {:tag String})
 
 (def read-fail-exception (Exception. "Error reading swank message"))
@@ -37,16 +43,8 @@
      - t will be converted to true
 
    See also `write-swank-message'."
-  ([#^java.io.Reader reader]
-     (let [;; replaceAll needed for apparent bug with Emacs 24
-           len-str (.replaceAll #^String (read-chars reader 6 read-fail-exception) " " "0")
-           len  (Integer/parseInt len-str 16)
-           msg  (read-chars reader len read-fail-exception)
-           form (try
-                  (read-string (fix-namespace msg))
-                  (catch Exception ex
-                    (.println System/err (format "unreadable message: %s" msg))
-                    (throw ex)))]
-       (if (seq? form)
-         (deep-replace {'t true} form)
+  ([#^java.io.InputStream input-stream]
+   (let [form (swank.rpc/decode-message input-stream)]
+     (if (seq? form)
+         (deep-replace {'t true} (fix-namespace form))
          form))))

@@ -11,7 +11,7 @@
   (:import (java.io BufferedReader)))
 
 ;; Protocol version
-(defonce protocol-version (atom "20100404"))
+(defonce protocol-version (atom "2012-06-19"))
 
 ;; Emacs packages
 (def #^{:dynamic true} *current-package*)
@@ -262,7 +262,7 @@ values."
          (send-to-emacs `(:return ~(thread-name (current-thread))
                                   (:ok ~result) ~id)))
        ;; swank function not defined, abort
-       (send-to-emacs `(:return ~(thread-name (current-thread)) (:abort) ~id))))
+       (send-to-emacs `(:return ~(thread-name (current-thread)) (:abort nil) ~id))))
    (catch Throwable t
      ;; Thread/interrupted clears this thread's interrupted status; if
      ;; Thread.stop was called on us it may be set and will cause an
@@ -274,19 +274,19 @@ values."
      (cond
       (debug-quit-exception? t)
       (do
-        (send-to-emacs `(:return ~(thread-name (current-thread)) (:abort) ~id))
+        (send-to-emacs `(:return ~(thread-name (current-thread)) (:abort ~(.toString t)) ~id))
         (if-not (zero? *sldb-level*)
           (throw t)))
 
       (debug-abort-exception? t)
       (do
-        (send-to-emacs `(:return ~(thread-name (current-thread)) (:abort) ~id))
+        (send-to-emacs `(:return ~(thread-name (current-thread)) (:abort ~(.toString t)) ~id))
         (if-not (zero? *sldb-level*)
           (throw debug-abort-exception)))
 
       (debug-continue-exception? t)
       (do
-        (send-to-emacs `(:return ~(thread-name (current-thread)) (:abort) ~id))
+        (send-to-emacs `(:return ~(thread-name (current-thread)) (:abort ~(.toString t)) ~id))
         (throw t))
       ;;
       (debug-invalid-restart-exception? t)
@@ -306,7 +306,7 @@ values."
            id)
           ;; reply with abort
           (finally (send-to-emacs
-                    `(:return ~(thread-name (current-thread)) (:abort) ~id)))))))))
+                    `(:return ~(thread-name (current-thread)) (:abort ~(.toString t)) ~id)))))))))
 
 (defn- add-active-thread [thread]
   (dosync

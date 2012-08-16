@@ -4,7 +4,7 @@
   swank.rpc
   (:use (swank util)
         (swank.util io))
-  (:import (java.io Writer Reader PushbackReader StringReader)))
+  (:import (java.io InputStream OutputStream Writer)))
 
 ;; ERROR HANDLING
 
@@ -25,63 +25,26 @@
 
 ;; INPUT
 
-(defn- read-form
+(defn- read-form [str]
   "Read a form that conforms to the swank rpc protocol"
-  ([#^Reader rdr]
-     (let [c (.read rdr)]
-       (condp = (char c)
-         \" (let [sb (StringBuilder.)]
-              (loop []
-                (let [c (.read rdr)]
-                  (if (= c -1)
-                    (throw (java.io.EOFException. "Incomplete reading of quoted string."))
-                    (condp = (char c)
-                      \" (str sb)
-                      \\ (do (.append sb (char (.read rdr)))
-                             (recur))
-                      (do (.append sb (char c))
-                          (recur)))))))
-         \( (loop [result []]
-              (let [form (read-form rdr)]
-                (let [c (.read rdr)]
-                  (if (= c -1)
-                    (throw (java.io.EOFException. "Incomplete reading of list."))
-                    (condp = (char c)
-                      \) (sequence (conj result form))
-                      \space (recur (conj result form)))))))
-         \' (list 'quote (read-form rdr))
-         (let [sb (StringBuilder.)]
-           (loop [c c]
-             (if (not= c -1)
-               (condp = (char c)
-                 \\ (do (.append sb (char (.read rdr)))
-                        (recur (.read rdr)))
-                 \space (.unread #^PushbackReader rdr c)
-                 \) (.unread #^PushbackReader rdr c)
-                 (do (.append sb (char c))
-                     (recur (.read rdr))))))
-           (let [str (str sb)]
-             (cond
-              (. Character isDigit c) (Integer/parseInt str)
-              (= "nil" str) nil
-              (= "t" str) true
-              :else (symbol str))))))))
+  (read-string str))
+
+(def transport-encoding "utf-8")
 
 (defn- read-packet
-  ([#^Reader reader]
-     (let [len (Integer/parseInt (read-chars reader 6 swank-protocol-error) 16)]
-       (read-chars reader len swank-protocol-error))))
+  ([#^InputStream input-stream]
+   (let [len (Integer/parseInt (String. (read-bytes input-stream 6) transport-encoding) 16)]
+     (String. (read-bytes input-stream len) transport-encoding))))
 
 (defn decode-message
    "Read an rpc message encoded using the swank rpc protocol."
-  ([#^Reader rdr]
+  ([#^InputStream rdr]
     (let [packet (read-packet rdr)]
        (log-event "READ: %s\n" packet)
        (try
-         (with-open [rdr (PushbackReader. (StringReader. packet))]
-           (read-form rdr))
-         (catch Exception e
-           (list :reader-error packet e))))))
+        (read-form packet)
+        (catch Exception e
+               (list :reader-error packet e))))))
 
 ; (with-open [rdr (StringReader. "00001f(swank:a 123 (%b% (t nil) \"c\"))")] (decode-message rdr))
 
@@ -120,20 +83,22 @@
     (print-object message writer)))
 
 (defn- write-packet
-  ([#^Writer writer #^String str]
-   (let [len (.length str)]
-    (doto writer
-          (.write (format "%06x" len))
-          (.write str)
+  ([#^OutputStream stream #^String str]
+   (let [bytes (.getBytes str transport-encoding)
+         len (alength bytes)
+         len-bytes (.getBytes (format "%06x" len) transport-encoding)]
+    (doto stream
+          (.write len-bytes)
+          (.write bytes)
           (.flush)))))
 
 (defn encode-message
   "Write an rpc message encoded using the swank rpc protocol."
-  ([#^Writer writer message]
+  ([#^OutputStream stream message]
      (let [str (with-out-str
                   (write-form *out* message)) ]
        (log-event "WRITE: %s\n" str)
-       (write-packet writer str))))
+       (write-packet stream str))))
 
 ; (with-out-str (encode-message *out* "hello"))
 ; (with-out-str (encode-message *out* '(a 123 (swank:b (true false) "c"))))

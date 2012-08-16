@@ -28,7 +28,8 @@
                                      :version ~(clojure-version))
          :package (:name ~(name (ns-name *ns*))
                          :prompt ~(name (ns-name *ns*)))
-         :version ~(deref protocol-version)))
+         :version ~(deref protocol-version)
+         :encoding (:coding-systems ("utf-8-unix"))))
 
 (defslimefn quit-lisp []
   (and @exit-on-quit?
@@ -687,7 +688,7 @@ Example: (get-source-from-var 'filter)"
 
 (defslimefn invoke-nth-restart-for-emacs [level n]
   (try
-    ((invoke-restart (*sldb-restarts* (nth (keys *sldb-restarts*) n))))
+    (invoke-restart (*sldb-restarts* (nth (keys *sldb-restarts*) n)))
     (catch IndexOutOfBoundsException e (throw debug-invalid-restart-exception))))
 
 (defslimefn throw-to-toplevel []
@@ -738,7 +739,7 @@ Example: (get-source-from-var 'filter)"
 (defslimefn frame-source-location-for-emacs [n]
   (source-location-for-frame (dbe/get-stack-trace n)))
 
-(defslimefn create-repl [target] '("user" "user"))
+(defslimefn create-repl [target & e] '("user" "user"))
 
 ;;; Threads
 

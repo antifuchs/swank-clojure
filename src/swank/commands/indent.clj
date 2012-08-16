@@ -49,7 +49,6 @@
        (when (or (= body-position 'defun)
                  (not (neg? body-position)))
          (list (name (:name (meta var)))
-               '.
                body-position)))))
 
 (defn- get-cache-update-for-var

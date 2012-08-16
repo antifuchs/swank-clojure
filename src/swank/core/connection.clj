@@ -3,7 +3,7 @@
         (swank.util sys)
         (swank.core protocol))
   (:import (java.net ServerSocket Socket InetAddress)
-           (java.io InputStreamReader OutputStreamWriter)))
+           (java.io InputStream OutputStream)))
 
 (def #^{:dynamic true} *current-connection*)
 (def default-encoding "iso-8859-1")
@@ -24,7 +24,7 @@
       "euc-jp" "euc-jp"
       "euc-jp-unix" "euc-jp"
 
-      "us-ascii" "us-ascii" 
+      "us-ascii" "us-ascii"
       "us-ascii-unix" "us-ascii"})
 
 (defn make-connection ;; rename to make-swank-connection
@@ -38,13 +38,13 @@
      (let [#^String
            encoding (or (encoding-map encoding encoding) default-encoding)]
        {:socket socket
-        :reader (InputStreamReader. (.getInputStream socket) encoding)
-        :writer (OutputStreamWriter. (.getOutputStream socket) encoding)
+        :input (.getInputStream socket)
+        :output (.getOutputStream socket)
         :writer-redir (ref nil)
-        
+
         :indent-cache (ref {})
         :indent-cache-pkg (ref nil)
-        
+
         :control-thread (ref nil)
         :read-thread (ref nil)
         :repl-thread (ref nil)})))
@@ -56,7 +56,7 @@
      `make-swank-connection'"
   ([] (read-from-connection *current-connection*))
   ([conn]
-     (read-swank-message (conn :reader))))
+     (read-swank-message (conn :input))))
 
 (defn write-to-connection
   "Writes a single message to a swank-connection.
@@ -65,4 +65,4 @@
     `make-swank-connection'"
   ([msg] (write-to-connection *current-connection* msg))
   ([conn msg]
-     (write-swank-message (conn :writer) msg)))
+     (write-swank-message (conn :output) msg)))

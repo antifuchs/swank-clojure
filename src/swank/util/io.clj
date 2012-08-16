@@ -4,18 +4,12 @@
   (:import [java.lang.String]
            [java.io StringWriter Reader PrintWriter]))
 
-(defn read-chars
-  ([rdr n] (read-chars rdr n false))
-  ([#^Reader rdr n throw-exception]
-     (let [#^"[C" cbuf (make-array Character/TYPE n)]
-       (loop [i 0]
-         (let [size (.read rdr cbuf i (- n i))]
-           (cond
-            (neg? size) (if throw-exception
-                          (throw throw-exception)
-                          (String. cbuf 0 i))
-            (= (+ i size) n) (String. cbuf)
-            :else (recur (+ i size))))))))
+(defn read-bytes [input-stream n]
+  (let [bytes (byte-array n)
+        read-length (.read input-stream bytes)]
+    (when (not= read-length n)
+      (throw (java.io.EOFException. (format "Could not read 0x%x bytes, got 0x%x" n read-length))))
+    bytes))
 
 (defn call-on-flush-stream
   "Creates a stream that will call a given function when flushed."
