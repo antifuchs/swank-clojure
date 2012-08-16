@@ -6,3 +6,5 @@ pom.xml
 .lein-failures
 .lein-deps-sum
 /lein-swank/.lein-plugins/checksum
+/target/stale/dependencies
+/lein-swank/target/stale/dependencies
