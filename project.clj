@@ -10,4 +10,5 @@
                       [clj-stacktrace "0.2.4"]
                       [cdt "1.2.6.2"]]}
   :warn-on-reflection true
-  :shell-wrapper {:main swank.swank})
+  :shell-wrapper {:main swank.swank}
+  :main swank.swank)
