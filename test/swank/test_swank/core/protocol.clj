@@ -17,13 +17,12 @@
 (deftest cl-cljs-edge-cases ()
   (is (= (read-msg "000013(nested (list [t]))")      '(nested (list [true])))))
 
-;;; TODO: make this use a ByteArrayOutputStream
+(defn- write-msg [form]
+  (with-open [writer (ByteArrayOutputStream.)]
+    (write-swank-message writer form)
+    (.toString writer "utf-8")))
 
 (deftest writing-messages
-  (are [form msg] (with-open [writer (StringWriter.)]
-                    (write-swank-message writer form)
-                    (= (.toString writer) msg))
-
-       9                         "0000019"
-       '(:keyword "string")      "000013(:keyword \"string\")"
-       '(nested (list [vector])) "000018(nested (list [vector]))"))
+  (is (= (write-msg 9)                         "0000019"))
+  (is (= (write-msg '(:keyword "string"))      "000013(:keyword \"string\")"))
+  (is (= (write-msg '(nested (list [vector]))) "000018(nested (list [vector]))")))
